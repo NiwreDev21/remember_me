@@ -19,6 +19,7 @@ class MemoryViewScreen extends StatefulWidget {
 
 class _MemoryViewScreenState extends State<MemoryViewScreen> {
   final StorageService _storageService = StorageService();
+  int _currentImageIndex = 0;
 
   @override
   void initState() {
@@ -82,51 +83,121 @@ class _MemoryViewScreenState extends State<MemoryViewScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Imagen ancla
-            Center(
-              child: Column(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    height: 250,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            // Imágenes ancla (ahora múltiples)
+            Column(
+              children: [
+                // Imagen actual
+                Container(
+                  width: double.infinity,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: FutureBuilder<File?>(
+                      future: StorageService.getImageFromPath(
+                          widget.memory.anchorImagePaths[_currentImageIndex]
+                      ),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData && snapshot.data != null) {
+                          return Image.file(snapshot.data!, fit: BoxFit.cover);
+                        }
+                        return Container(
+                          color: AppColors.surface,
+                          child: const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.image_not_supported,
+                                    size: 50, color: AppColors.textSecondary),
+                                SizedBox(height: 8),
+                                Text('Imagen del objeto',
+                                    style: TextStyle(color: AppColors.textSecondary)),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: FutureBuilder<File?>(
-                        future: StorageService.getImageFromPath(widget.memory.anchorImagePath),
-                        builder: (context, snapshot) {
-                          if (snapshot.hasData && snapshot.data != null) {
-                            return Image.file(snapshot.data!, fit: BoxFit.cover);
-                          }
-                          return Container(
-                            color: AppColors.surface,
-                            child: const Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.image_not_supported,
-                                      size: 50, color: AppColors.textSecondary),
-                                  SizedBox(height: 8),
-                                  Text('Imagen del objeto',
-                                      style: TextStyle(color: AppColors.textSecondary)),
-                                ],
+                  ),
+                ),
+
+                // Indicador de múltiples imágenes
+                if (widget.memory.anchorImagePaths.length > 1) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        onPressed: _currentImageIndex > 0
+                            ? () => setState(() => _currentImageIndex--)
+                            : null,
+                        icon: const Icon(Icons.chevron_left),
+                        color: AppColors.primary,
+                      ),
+                      Text(
+                        '${_currentImageIndex + 1}/${widget.memory.anchorImagePaths.length}',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      IconButton(
+                        onPressed: _currentImageIndex < widget.memory.anchorImagePaths.length - 1
+                            ? () => setState(() => _currentImageIndex++)
+                            : null,
+                        icon: const Icon(Icons.chevron_right),
+                        color: AppColors.primary,
+                      ),
+                    ],
+                  ),
+                  // Miniaturas
+                  SizedBox(
+                    height: 60,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: widget.memory.anchorImagePaths.length,
+                      itemBuilder: (context, index) {
+                        return GestureDetector(
+                          onTap: () => setState(() => _currentImageIndex = index),
+                          child: Container(
+                            width: 60,
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: _currentImageIndex == index
+                                    ? AppColors.primary
+                                    : Colors.transparent,
+                                width: 2,
                               ),
                             ),
-                          );
-                        },
-                      ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: FutureBuilder<File?>(
+                                future: StorageService.getImageFromPath(
+                                    widget.memory.anchorImagePaths[index]
+                                ),
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasData && snapshot.data != null) {
+                                    return Image.file(snapshot.data!, fit: BoxFit.cover);
+                                  }
+                                  return Container(color: AppColors.surface);
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Objeto anclado',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                  ),
                 ],
-              ),
+
+                const SizedBox(height: 8),
+                Text(
+                  'Objeto anclado (${widget.memory.anchorImagePaths.length} fotos)',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                ),
+              ],
             ),
             const SizedBox(height: 32),
 

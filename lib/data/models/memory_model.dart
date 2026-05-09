@@ -12,7 +12,7 @@ class Memory {
   final String id;
 
   @HiveField(1)
-  final String anchorImagePath; // Foto del objeto físico
+  final List<String> anchorImagePaths; // Múltiples imágenes del objeto
 
   @HiveField(2)
   final String type; // Guardar como String
@@ -23,21 +23,26 @@ class Memory {
   @HiveField(4)
   final DateTime createdAt;
 
+  @HiveField(5)
+  final List<String> imageHashes; // Hashes para comparación
+
   Memory({
     required this.id,
-    required this.anchorImagePath,
+    required this.anchorImagePaths,
     required this.type,
     required this.content,
     required this.createdAt,
+    required this.imageHashes,
   });
 
   // Constructor usando enum
   factory Memory.fromEnum({
     required String id,
-    required String anchorImagePath,
+    required List<String> anchorImagePaths,
     required MemoryType memoryType,
     required String content,
     required DateTime createdAt,
+    required List<String> imageHashes,
   }) {
     String typeString;
     switch (memoryType) {
@@ -53,10 +58,11 @@ class Memory {
     }
     return Memory(
       id: id,
-      anchorImagePath: anchorImagePath,
+      anchorImagePaths: anchorImagePaths,
       type: typeString,
       content: content,
       createdAt: createdAt,
+      imageHashes: imageHashes,
     );
   }
 

@@ -13,6 +13,9 @@ dependencies:
   hive_flutter: ^1.1.0
   path_provider: ^2.1.1
   image_picker: ^1.0.5
+  crypto: ^3.0.7
+  image: ^4.8.0
+  flutter_staggered_animations: ^1.1.1
 
 dev_dependencies:
   flutter_test:

@@ -1,17 +1,107 @@
-# memories_app
+# 🧠 Memorias Ancladas
 
-A new Flutter project.
+![Memorias Ancladas](./assets/banner.png)
 
-## Getting Started
+## 📖 Descripción
 
-This project is a starting point for a Flutter application.
+**Memorias Ancladas** es una aplicación móvil desarrollada para guardar recuerdos importantes mediante imágenes, ubicaciones y momentos especiales.  
+La aplicación busca ayudar a las personas a conservar memorias personales de una forma visual e interactiva.
 
-A few resources to get you started if this is your first Flutter project:
+El proyecto está enfocado en ofrecer una experiencia simple, moderna y emocional para almacenar recuerdos digitales.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## ✨ Características
+
+- 📸 Guardado de imágenes
+- 📍 Ubicación de recuerdos
+- 🗂️ Organización de memorias
+- 📱 Interfaz moderna y responsiva
+- ⚡ Rendimiento optimizado
+- 🔒 Manejo seguro de datos locales
+
+---
+
+## 🛠️ Tecnologías utilizadas
+
+### Frontend
+- Flutter
+- Dart
+
+### Herramientas y paquetes
+- Provider / Riverpod
+- Image Picker
+- Geolocator
+- Shared Preferences
+- SQLite / Hive
+
+### Desarrollo
+- Android Studio
+- VS Code
+- Git & GitHub
+
+---
+
+## 📷 Capturas de la aplicación
+
+| Inicio | Crear memoria | Galería |
+|---|---|---|
+| ![](./assets/home_rec.jpeg) | ![](./assets/esca_rem.jpeg) |
+
+---
+
+
+Estructura principal:
+
+```bash
+lib/
+├── screens/
+├── widgets/
+├── services/
+├── models/
+├── controllers/
+└── main.dart
+```
+
+---
+
+## 🚀 Instalación
+
+Clonar el repositorio:
+
+```bash
+git clone https://github.com/NiwreDev21/remember_me.git
+```
+
+Entrar al proyecto:
+
+```bash
+cd remember_me
+```
+
+Instalar dependencias:
+
+```bash
+flutter pub get
+```
+
+Ejecutar aplicación:
+
+```bash
+flutter run
+```
+
+---
+
+## 📱 APK
+
+Puedes probar la aplicación descargando el APK desde:
+
+[Descargar APK](./apk/app-release.apk)
+
+---
+
+
+## 📄 Licencia
+
+Este proyecto está bajo la licencia MIT.

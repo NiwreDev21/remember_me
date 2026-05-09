@@ -1,174 +1,216 @@
 import 'package:flutter/material.dart';
-import 'package:memorias_ancladas/core/constants/app_colors.dart';
+import 'package:memorias_ancladas/core/theme/app_theme.dart';
 import 'package:memorias_ancladas/features/capture/capture_screen.dart';
-import 'package:memorias_ancladas/features/memory/memory_list_screen.dart';
+import 'package:memorias_ancladas/features/home/widgets/custom_app_bar.dart';
+import 'package:memorias_ancladas/features/home/widgets/stories_section.dart';
+import 'package:memorias_ancladas/features/home/widgets/smart_search_bar.dart';
+import 'package:memorias_ancladas/features/home/widgets/category_chips.dart';
+import 'package:memorias_ancladas/features/home/widgets/memory_grid.dart';
 import 'package:memorias_ancladas/features/scan/scan_screen.dart';
+import 'package:memorias_ancladas/features/memory/memory_list_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String _searchQuery = '';
+  String _selectedCategory = 'todos';
+  int _selectedIndex = 0;
+
+  final List<Widget> _screens = [
+    const HomeContent(),
+    const ScanScreen(),
+    const CaptureScreen(),
+    const MemoryListScreen(),
+    const ProfileScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
+      body: _screens[_selectedIndex],
+      bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.background,
-              AppColors.surface,
-            ],
-          ),
+          color: AppColors.surface.withOpacity(0.95),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 60),
-              // Logo/Título
-              Column(
-                children: [
-                  Icon(
-                    Icons.anchor,
-                    size: 80,
-                    color: AppColors.primary.withOpacity(0.8),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Memorias Ancladas',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.text,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Cada objeto guarda una historia',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 80),
-              // Opciones principales
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    _buildOptionCard(
-                      context,
-                      icon: Icons.save_alt,
-                      title: 'Guardar recuerdo',
-                      subtitle: 'Ancla un nuevo recuerdo a un objeto',
-                      color: AppColors.primary,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CaptureScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    _buildOptionCard(
-                      context,
-                      icon: Icons.search,
-                      title: 'Escanear objeto',
-                      subtitle: 'Busca un recuerdo existente',
-                      color: AppColors.secondary,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ScanScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    _buildOptionCard(
-                      context,
-                      icon: Icons.collections_bookmark,
-                      title: 'Ver recuerdos',
-                      subtitle: 'Todos tus recuerdos guardados',
-                      color: AppColors.textSecondary,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const MemoryListScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(Icons.home_filled, 'Inicio', 0),
+                //_buildNavItem(Icons.search, 'Escanear', 1),
+                _buildNavItem(Icons.add_circle, 'Crear', 2, isSpecial: true),
+                _buildNavItem(Icons.list_alt, 'Mis Recuerdos', 3),
+                _buildNavItem(Icons.person, 'Perfil', 4),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildOptionCard(
-      BuildContext context, {
-        required IconData icon,
-        required String title,
-        required String subtitle,
-        required Color color,
-        required VoidCallback onTap,
-      }) {
-    return Card(
-      elevation: 4,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+  Widget _buildNavItem(IconData icon, String label, int index,
+      {bool isSpecial = false}) {
+    final isSelected = _selectedIndex == index;
+
+    if (isSpecial) {
+      return GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
         child: Container(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 32),
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+            ),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withOpacity(0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.text,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.arrow_forward_ios, color: color, size: 20),
             ],
           ),
+          child: Icon(icon, color: Colors.white, size: 28),
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: Icon(icon,
+              color: isSelected ? AppColors.primary : AppColors.textTertiary),
+          iconSize: 28,
+          onPressed: () => setState(() => _selectedIndex = index),
+        ),
+        if (isSelected)
+          Container(
+            width: 4,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class HomeContent extends StatefulWidget {
+  const HomeContent({super.key});
+
+  @override
+  State<HomeContent> createState() => _HomeContentState();
+}
+
+class _HomeContentState extends State<HomeContent> {
+  String _searchQuery = '';
+  String _selectedCategory = 'todos';
+
+  void _navigateToScan() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ScanScreen(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              const CustomAppBar(),
+              const SizedBox(height: 16),
+
+              SmartSearchBar(
+                onTap: _navigateToScan,
+                hintText: 'Buscar o escanear objeto...',
+              ),
+
+              const SizedBox(height: 24),
+              const StoriesSection(),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+
+        SliverToBoxAdapter(
+          child: CategoryChips(
+            selectedCategory: _selectedCategory,
+            onCategorySelected: (category) {
+              setState(() => _selectedCategory = category);
+            },
+          ),
+        ),
+
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: MemoryGrid(
+            searchQuery: _searchQuery,
+            category: _selectedCategory,
+          ),
+        ),
+
+        const SliverToBoxAdapter(child: SizedBox(height: 80)),
+      ],
+    );
+  }
+}
+
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Perfil'),
+        backgroundColor: Colors.transparent,
+      ),
+      body: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 50,
+              child: Icon(Icons.person, size: 50),
+            ),
+            SizedBox(height: 16),
+            Text('Usuario'),
+            SizedBox(height: 8),
+            Text('mis.memorias@ejemplo.com'),
+            SizedBox(height: 16),
+            Text('Próximamente más funciones...'),
+          ],
         ),
       ),
     );

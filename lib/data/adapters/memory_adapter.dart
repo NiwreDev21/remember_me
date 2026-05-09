@@ -9,19 +9,21 @@ class MemoryAdapter extends TypeAdapter<Memory> {
   Memory read(BinaryReader reader) {
     return Memory(
       id: reader.readString(),
-      anchorImagePath: reader.readString(),
+      anchorImagePaths: reader.readList().cast<String>(),
       type: reader.readString(),
       content: reader.readString(),
       createdAt: DateTime.fromMillisecondsSinceEpoch(reader.readInt()),
+      imageHashes: reader.readList().cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Memory obj) {
     writer.writeString(obj.id);
-    writer.writeString(obj.anchorImagePath);
+    writer.writeList(obj.anchorImagePaths);
     writer.writeString(obj.type);
     writer.writeString(obj.content);
     writer.writeInt(obj.createdAt.millisecondsSinceEpoch);
+    writer.writeList(obj.imageHashes);
   }
 }

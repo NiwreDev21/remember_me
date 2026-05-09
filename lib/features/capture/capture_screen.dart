@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:memorias_ancladas/core/constants/app_colors.dart';
 import 'package:memorias_ancladas/data/models/memory_model.dart';
+import 'package:memorias_ancladas/data/services/hash_service.dart';
 import 'package:memorias_ancladas/data/services/storage_service.dart';
 import 'package:memorias_ancladas/features/memory/memory_view_screen.dart';
 
@@ -19,10 +20,12 @@ class _CaptureScreenState extends State<CaptureScreen> {
   final TextEditingController _textController = TextEditingController();
 
   MemoryType _selectedType = MemoryType.text;
-  String? _anchorImagePath; // Foto del objeto
+  List<File> _anchorImages = []; // Múltiples imágenes del objeto
   String? _mediaPath; // Para imagen/video adicional
   bool _isSaving = false;
-  bool _isTakingAnchorPhoto = true; // Para saber si está tomando la foto ancla
+  bool _isTakingPhotos = true;
+
+  static const int maxPhotos = 3; // Máximo 3 fotos
 
   @override
   void initState() {
@@ -37,21 +40,27 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 
   Future<void> _takeAnchorPhoto() async {
+    if (_anchorImages.length >= maxPhotos) {
+      _showError('Máximo $maxPhotos fotos permitidas');
+      return;
+    }
+
     final XFile? photo = await _picker.pickImage(
       source: ImageSource.camera,
       preferredCameraDevice: CameraDevice.rear,
     );
 
     if (photo != null) {
-      final savedPath = await StorageService.saveImageLocally(
-        File(photo.path),
-        'anchor',
-      );
       setState(() {
-        _anchorImagePath = savedPath;
-        _isTakingAnchorPhoto = false;
+        _anchorImages.add(File(photo.path));
       });
     }
+  }
+
+  Future<void> _removeAnchorPhoto(int index) async {
+    setState(() {
+      _anchorImages.removeAt(index);
+    });
   }
 
   Future<void> _captureMedia() async {
@@ -82,8 +91,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
   Future<void> _saveMemory() async {
     // Validaciones
-    if (_anchorImagePath == null) {
-      _showError('Primero toma una foto del objeto');
+    if (_anchorImages.isEmpty) {
+      _showError('Toma al menos una foto del objeto');
       return;
     }
 
@@ -101,14 +110,27 @@ class _CaptureScreenState extends State<CaptureScreen> {
     setState(() => _isSaving = true);
 
     try {
+      // Guardar todas las imágenes ancla
+      final savedPaths = await StorageService.saveMultipleImages(_anchorImages, 'anchor');
+
+      // Generar hashes para cada imagen
+      List<String> hashes = [];
+      for (final path in savedPaths) {
+        final hash = await HashService.generateImageHash(path);
+        if (hash.isNotEmpty) {
+          hashes.add(hash);
+        }
+      }
+
       final memory = Memory.fromEnum(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        anchorImagePath: _anchorImagePath!,
+        anchorImagePaths: savedPaths,
         memoryType: _selectedType,
         content: _selectedType == MemoryType.text
             ? _textController.text.trim()
             : _mediaPath!,
         createdAt: DateTime.now(),
+        imageHashes: hashes,
       );
 
       await _storageService.saveMemory(memory);
@@ -117,7 +139,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('¡Recuerdo guardado! ✨')),
+          SnackBar(
+            content: Text('¡Recuerdo guardado con ${savedPaths.length} fotos! ✨'),
+            backgroundColor: AppColors.success,
+          ),
         );
         Navigator.pushReplacement(
           context,
@@ -152,17 +177,34 @@ class _CaptureScreenState extends State<CaptureScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Foto del objeto (ANCLA)
-            Text(
-              '1. Foto del objeto',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            // Fotos del objeto (ANCLA) - Múltiples imágenes
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '1. Fotos del objeto (${_anchorImages.length}/$maxPhotos)',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (_anchorImages.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: _takeAnchorPhoto,
+                    icon: const Icon(Icons.add_a_photo, size: 20),
+                    label: const Text('Agregar otra'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.secondary,
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 12),
-            GestureDetector(
+
+            // Grid de imágenes
+            _anchorImages.isEmpty
+                ? GestureDetector(
               onTap: _takeAnchorPhoto,
               child: Container(
                 height: 200,
@@ -174,20 +216,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     color: AppColors.primary.withOpacity(0.3),
                   ),
                 ),
-                child: _anchorImagePath != null
-                    ? ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: FutureBuilder<File?>(
-                    future: StorageService.getImageFromPath(_anchorImagePath!),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData && snapshot.data != null) {
-                        return Image.file(snapshot.data!, fit: BoxFit.cover);
-                      }
-                      return const Center(child: CircularProgressIndicator());
-                    },
-                  ),
-                )
-                    : Column(
+                child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.camera_alt, size: 50, color: AppColors.primary),
@@ -196,14 +225,77 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       'Tomar foto del objeto',
                       style: TextStyle(color: AppColors.primary),
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Toma hasta $maxPhotos fotos de diferentes ángulos',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    ),
                   ],
                 ),
               ),
+            )
+                : GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1,
+              ),
+              itemCount: _anchorImages.length,
+              itemBuilder: (context, index) {
+                return Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        _anchorImages[index],
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.black54,
+                        child: IconButton(
+                          icon: const Icon(Icons.close, size: 16),
+                          color: Colors.white,
+                          onPressed: () => _removeAnchorPhoto(index),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ),
+                    ),
+                    if (index == 0 && _anchorImages.length < maxPhotos)
+                      Positioned(
+                        bottom: 8,
+                        right: 8,
+                        child: CircleAvatar(
+                          radius: 16,
+                          backgroundColor: AppColors.secondary,
+                          child: IconButton(
+                            icon: const Icon(Icons.add, size: 16),
+                            color: Colors.white,
+                            onPressed: _takeAnchorPhoto,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
+
             const SizedBox(height: 32),
 
-            // Tipo de recuerdo
-            if (_anchorImagePath != null) ...[
+            // Mostrar contenido solo si hay fotos
+            if (_anchorImages.isNotEmpty) ...[
               Text(
                 '2. Tipo de recuerdo',
                 style: TextStyle(

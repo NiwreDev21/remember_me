@@ -2,9 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:memorias_ancladas/core/constants/app_colors.dart';
-import 'package:memorias_ancladas/data/models/memory_model.dart';
 import 'package:memorias_ancladas/data/services/storage_service.dart';
 import 'package:memorias_ancladas/features/memory/memory_view_screen.dart';
+
+import '../capture/capture_screen.dart' show CaptureScreen;
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -17,47 +18,132 @@ class _ScanScreenState extends State<ScanScreen> {
   final StorageService _storageService = StorageService();
   final ImagePicker _picker = ImagePicker();
 
-  List<Memory> _allMemories = [];
-  String? _newPhotoPath;
-  bool _isLoading = false;
+  bool _isScanning = false;
+  String? _statusMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadMemories();
+    _storageService.init();
   }
 
-  Future<void> _loadMemories() async {
-    await _storageService.init();
+  Future<void> _scanObject() async {
     setState(() {
-      _allMemories = _storageService.getAllMemories();
+      _isScanning = true;
+      _statusMessage = 'Tomando foto...';
     });
-  }
 
-  Future<void> _takePhoto() async {
-    final XFile? photo = await _picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.rear,
-    );
-
-    if (photo != null) {
-      final savedPath = await StorageService.saveImageLocally(
-        File(photo.path),
-        'scan_temp',
+    try {
+      // Tomar foto del objeto
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
       );
-      setState(() {
-        _newPhotoPath = savedPath;
-      });
-    }
-  }
 
-  void _selectMemory(Memory memory) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MemoryViewScreen(memory: memory),
-      ),
-    );
+      if (photo == null) {
+        setState(() {
+          _isScanning = false;
+          _statusMessage = null;
+        });
+        return;
+      }
+
+      setState(() {
+        _statusMessage = 'Analizando objeto...';
+      });
+
+      // Buscar recuerdo similar
+      final similarMemory = await _storageService.findSimilarMemory(File(photo.path));
+
+      setState(() {
+        _isScanning = false;
+        _statusMessage = null;
+      });
+
+      if (similarMemory != null) {
+        // Mostrar el recuerdo encontrado
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🎯 ¡Objeto reconocido! Mostrando tu recuerdo...'),
+              backgroundColor: AppColors.success,
+              duration: Duration(seconds: 2),
+            ),
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MemoryViewScreen(memory: similarMemory),
+            ),
+          );
+        }
+      } else {
+        // No se encontró coincidencia
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: AppColors.surface,
+              title: const Text('Objeto no reconocido'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.search_off, size: 64, color: AppColors.textSecondary),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No encontré un recuerdo asociado a este objeto.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.text),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '¿Quieres guardar un nuevo recuerdo para este objeto?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CaptureScreen(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                  ),
+                  child: const Text('Guardar recuerdo'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+
+    } catch (e) {
+      setState(() {
+        _isScanning = false;
+        _statusMessage = null;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al escanear: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -66,203 +152,117 @@ class _ScanScreenState extends State<ScanScreen> {
       appBar: AppBar(
         title: const Text('Escanear Objeto'),
       ),
-      body: Column(
-        children: [
-          // Sección para tomar nueva foto
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(24),
-                bottomRight: Radius.circular(24),
-              ),
-            ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppColors.background,
+              AppColors.surface,
+            ],
+          ),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                Icon(
+                  Icons.qr_code_scanner,
+                  size: 100,
+                  color: AppColors.primary.withOpacity(0.7),
+                ),
+                const SizedBox(height: 32),
                 Text(
-                  'Toma una foto del objeto que quieres escanear',
+                  'Escanea un objeto',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.text,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Toma una foto del objeto y buscaré\nel recuerdo asociado automáticamente',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 14,
                   ),
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: _takePhoto,
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text('Tomar Foto'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondary,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                ),
-                if (_newPhotoPath != null) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    height: 150,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.secondary),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: FutureBuilder<File?>(
-                        future: StorageService.getImageFromPath(_newPhotoPath!),
-                        builder: (context, snapshot) {
-                          if (snapshot.hasData && snapshot.data != null) {
-                            return Image.file(snapshot.data!, fit: BoxFit.cover);
-                          }
-                          return const Center(child: CircularProgressIndicator());
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+                const SizedBox(height: 48),
 
-          const SizedBox(height: 24),
-
-          // Lista de posibles coincidencias
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              children: [
-                Icon(Icons.search, color: AppColors.primary, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Posibles coincidencias',
-                  style: TextStyle(
-                    color: AppColors.text,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                if (_isScanning) ...[
+                  const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          Expanded(
-            child: _allMemories.isEmpty
-                ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.inbox, size: 64, color: AppColors.textSecondary),
                   const SizedBox(height: 16),
                   Text(
-                    'No hay recuerdos guardados',
+                    _statusMessage ?? 'Procesando...',
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
+                ] else ...[
+                  ElevatedButton.icon(
+                    onPressed: _scanObject,
+                    icon: const Icon(Icons.camera_alt, size: 28),
+                    label: const Text(
+                      'Escanear Ahora',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondary,
+                      foregroundColor: AppColors.background,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 16,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      minimumSize: const Size(double.infinity, 60),
+                    ),
+                  ),
                 ],
-              ),
-            )
-                : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              itemCount: _allMemories.length,
-              itemBuilder: (context, index) {
-                final memory = _allMemories[index];
-                return _buildMemoryCard(memory);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildMemoryCard(Memory memory) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: InkWell(
-        onTap: () => _selectMemory(memory),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              // Miniatura de la imagen ancla
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: AppColors.background,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: FutureBuilder<File?>(
-                    future: StorageService.getImageFromPath(memory.anchorImagePath),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData && snapshot.data != null) {
-                        return Image.file(snapshot.data!, fit: BoxFit.cover);
-                      }
-                      return const Icon(Icons.image, color: AppColors.textSecondary);
-                    },
+                const SizedBox(height: 32),
+
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.lightbulb, size: 20, color: AppColors.secondary),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Consejo',
+                            style: TextStyle(
+                              color: AppColors.secondary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Para mejores resultados, toma la foto desde un ángulo similar a cuando guardaste el recuerdo.',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              // Información
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          memory.memoryType == MemoryType.text
-                              ? Icons.description
-                              : (memory.memoryType == MemoryType.image ? Icons.image : Icons.video_library),
-                          size: 16,
-                          color: AppColors.secondary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          memory.memoryType == MemoryType.text
-                              ? 'Texto'
-                              : (memory.memoryType == MemoryType.image ? 'Imagen' : 'Video'),
-                          style: TextStyle(
-                            color: AppColors.secondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      memory.previewText,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppColors.text),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _formatDate(memory.createdAt),
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: AppColors.primary),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
   }
 }
